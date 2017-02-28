@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximelamure/elasticsearch"
+	"github.com/boes13/elasticsearch"
 )
 
 var (
@@ -41,6 +41,8 @@ var (
 func TestIndexManagement(t *testing.T) {
 	helper := Test{}
 	client := elasticsearch.NewClient(ESScheme, ESHost, ESPort)
+
+	client.SetHttpTimeout(5000)
 
 	//If the index exists, remove it
 	if response, _ := client.IndexExists(IndexName); response {
@@ -143,15 +145,12 @@ func TestSearch(t *testing.T) {
 	client.CreateIndex(IndexName, IndexMapping)
 
 	//Bulk
-	var buffer bytes.Buffer
+	buffer := new(bytes.Buffer)
 	for _, value := range products {
-		buffer.WriteString(BulkIndexConstant(IndexName, ProductDocumentType, value.ID))
-		buffer.WriteByte('\n')
-
-		jsonProduct, err := json.Marshal(value)
-		helper.OK(t, err)
-		buffer.Write(jsonProduct)
-		buffer.WriteByte('\n')
+		actionIndex := elasticsearch.ActionIndex{}
+		actionIndex.Create = elasticsearch.DocumentAction{ID: value.ID, Index: IndexName, Type: ProductDocumentType}
+		json.NewEncoder(buffer).Encode(actionIndex)
+		json.NewEncoder(buffer).Encode(value)
 	}
 
 	_, err := client.Bulk(buffer.Bytes())
@@ -168,13 +167,13 @@ func TestSearch(t *testing.T) {
 	//MSearch
 
 	mqueries := make([]elasticsearch.MSearchQuery, 2)
-	mqueries[0] = elasticsearch.MSearchQuery{Header: `{ "index":` + IndexName + `, "type":"` + ProductDocumentType + `" }`, Body: `{ "query": {"match_all" : {}}, "from" : 0, "size" : 1} }`}
-	mqueries[1] = elasticsearch.MSearchQuery{Header: `{ "index":` + IndexName + `, "type":"` + ProductDocumentType + `" }`, Body: `{"query": {"match_all" : {}}, "from" : 0, "size" : 2}}`}
+	mqueries[0] = elasticsearch.MSearchQuery{Header: `{ "index":"` + IndexName + `", "type":"` + ProductDocumentType + `" }`, Body: `{ "query": {"match_all" : {}}, "from" : 0, "size" : 1} }`}
+	mqueries[1] = elasticsearch.MSearchQuery{Header: `{ "index":"` + IndexName + `", "type":"` + ProductDocumentType + `" }`, Body: `{"query": {"match_all" : {}}, "from" : 0, "size" : 2}}`}
 
 	msresult, err := client.MSearch(mqueries)
 	helper.OK(t, err)
-	helper.Assert(t, msresult.Responses[0].Hits.Total == 1, "The msearch doesn't return all matched items")
-	helper.Assert(t, msresult.Responses[1].Hits.Total == 2, "The msearch doesn't return all matched items")
+	helper.Assert(t, len(msresult.Responses[0].Hits.Hits) == 1, "The msearch doesn't return all matched items")
+	helper.Assert(t, len(msresult.Responses[1].Hits.Hits) == 2, "The msearch doesn't return all matched items")
 
 	//Delete the index
 	deleteResponse, err := client.DeleteIndex(IndexName)

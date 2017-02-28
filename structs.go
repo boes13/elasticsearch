@@ -2,7 +2,7 @@ package elasticsearch
 
 import "encoding/json"
 
-// Response represents a boolean response sent back by the search egine
+// Response represents a boolean response sent back by the search engine
 type Response struct {
 	Acknowledged bool
 	Error        string
@@ -70,6 +70,42 @@ type Bulk struct {
 			Error   string `json:"error"`
 		} `json:"index"`
 	} `json:"items"`
+}
+
+// DocumentAction represents the action to be used in bulk operations: create, index, delete
+type DocumentAction struct {
+	Index   string `json:"_index"`
+	Type    string `json:"_type"`
+	ID      string `json:"_id"`
+	Routing string `json:"_routing,omitempty"`
+	Version string `json:"_version,omitempty"`
+	Parent  string `json:"_parent,omitempty"`
+}
+
+// ActionCreate represents the action to be used in create bulk operation
+type ActionCreate struct {
+	Create DocumentAction `json:"create"`
+}
+
+// ActionCreate represents the action to be used in index bulk operation
+type ActionIndex struct {
+	Create DocumentAction `json:"index"`
+}
+
+// ActionDelete represents the action to be used in delete bulk operation
+type ActionDelete struct {
+	Create DocumentAction `json:"delete"`
+}
+
+// ActionUpdate represents the action to be used in update bulk operation
+type ActionUpdate struct {
+	Index   string `json:"_index"`
+	Type    string `json:"_type"`
+	ID      string `json:"_id"`
+	Routing string `json:"_routing,omitempty"`
+	Version string `json:"_version,omitempty"`
+	Parent  string `json:"_parent,omitempty"`
+	Retry   string `json:"_retry_on_conflict,omitempty"`
 }
 
 // SearchResult represents the result of the search operation

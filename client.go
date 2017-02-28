@@ -14,6 +14,7 @@ import (
 
 // Searcher set the contract to manage indices, synchronize data and request
 type Client interface {
+	SetHttpTimeout(milliseconds int)
 	CreateIndex(indexName, mapping string) (*Response, error)
 	DeleteIndex(indexName string) (*Response, error)
 	UpdateIndexSetting(indexName, mapping string) (*Response, error)
@@ -33,7 +34,8 @@ type Client interface {
 
 // A SearchClient describes the client configuration to manage an ElasticSearch index.
 type client struct {
-	Host url.URL
+	Host    url.URL
+	Timeout int
 }
 
 // NewSearchClient creates and initializes a new ElasticSearch client, implements core api for Indexing and searching.
@@ -53,6 +55,11 @@ func NewClientFromUrl(rawurl string) Client {
 		return nil
 	}
 	return &client{Host: *u}
+}
+
+// SetHttpTimeout sets timeout to use in http request in milliseconds
+func (c *client) SetHttpTimeout(milliseconds int) {
+	c.Timeout = milliseconds
 }
 
 // CreateIndex instantiates an index
