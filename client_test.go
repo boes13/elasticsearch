@@ -41,8 +41,7 @@ var (
 func TestIndexManagement(t *testing.T) {
 	helper := Test{}
 	client := elasticsearch.NewClient(ESScheme, ESHost, ESPort)
-
-	client.SetHttpTimeout(5000)
+	client.SetHttpTimeout(5 * time.Second)
 
 	//If the index exists, remove it
 	if response, _ := client.IndexExists(IndexName); response {
@@ -86,6 +85,7 @@ func TestCRUD(t *testing.T) {
 
 	helper := Test{}
 	client := elasticsearch.NewClient(ESScheme, ESHost, ESPort)
+	client.SetHttpTimeout(5 * time.Second)
 	//Create the index
 	client.CreateIndex(IndexName, IndexMapping)
 
@@ -142,6 +142,7 @@ func TestSearch(t *testing.T) {
 	}
 	helper := Test{}
 	client := elasticsearch.NewClient(ESScheme, ESHost, ESPort)
+	client.SetHttpTimeout(5 * time.Second)
 	client.CreateIndex(IndexName, IndexMapping)
 
 	//Bulk
@@ -240,6 +241,7 @@ func TestSuggestion(t *testing.T) {
 
 	helper := Test{}
 	client := elasticsearch.NewClient(ESScheme, ESHost, ESPort)
+	client.SetHttpTimeout(5 * time.Second)
 	client.CreateIndex(SuggestionIndexName, SuggestionIndexMapping)
 
 	//Add Data
