@@ -14,21 +14,66 @@ import (
 
 // Searcher set the contract to manage indices, synchronize data and request
 type Client interface {
+	// SetHttpTimeout sets timeout to use in http request in milliseconds
 	SetHttpTimeout(milliseconds int)
+
+	// CreateIndex instantiates an index
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-create-index.html
 	CreateIndex(indexName, mapping string) (*Response, error)
+
+	// DeleteIndex deletes an existing index.
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-delete-index.html
 	DeleteIndex(indexName string) (*Response, error)
+
+	// UpdateIndexSetting changes specific index level settings in real time
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-update-settings.html
 	UpdateIndexSetting(indexName, mapping string) (*Response, error)
+
+	// IndexSettings allows to retrieve settings of index
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-get-settings.html
 	IndexSettings(indexName string) (Settings, error)
+
+	// IndexExists allows to check if the index exists or not.
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-exists.html
 	IndexExists(indexName string) (bool, error)
+
+	// Status allows to get a comprehensive status information
 	Status(indices string) (*Settings, error)
+
+	// InsertDocument adds or updates a typed JSON document in a specific index, making it searchable
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-index_.html
 	InsertDocument(indexName, documentType, identifier string, data []byte) (*InsertDocument, error)
+
+	// Document gets a typed JSON document from the index based on its id
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-get.html
 	Document(indexName, documentType, identifier string) (*Document, error)
+
+	// DeleteDocument deletes a typed JSON document from a specific index based on its id
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-delete.html
 	DeleteDocument(indexName, documentType, identifier string) (*Document, error)
+
+	// Bulk makes it possible to perform many index/delete operations in a single API call.
+	// This can greatly increase the indexing speed.
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html
 	Bulk(data []byte) (*Bulk, error)
+
+	// Search allows to execute a search query and get back search hits that match the query
+	// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-delete.html
 	Search(indexName, documentType, data string, explain bool) (*SearchResult, error)
+
+	// MSearch allows to execute a multi-search and get back result
+	// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-multi-search.html
 	MSearch(queries []MSearchQuery) (*MSearchResult, error)
+
+	// Suggest allows basic auto-complete functionality.
+	// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-completion.html
 	Suggest(indexName, data string) ([]byte, error)
+
+	// GetIndicesFromAlias returns the list of indices the alias points to
 	GetIndicesFromAlias(alias string) ([]string, error)
+
+	// UpdateAlias updates the indices on which the alias point to.
+	// The change is atomic.
 	UpdateAlias(remove []string, add []string, alias string) (*Response, error)
 }
 
@@ -62,8 +107,6 @@ func (c *client) SetHttpTimeout(milliseconds int) {
 	c.Timeout = milliseconds
 }
 
-// CreateIndex instantiates an index
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-create-index.html
 func (c *client) CreateIndex(indexName, mapping string) (*Response, error) {
 	url := c.Host.String() + "/" + indexName
 	reader := bytes.NewBufferString(mapping)
@@ -81,8 +124,6 @@ func (c *client) CreateIndex(indexName, mapping string) (*Response, error) {
 	return esResp, nil
 }
 
-// DeleteIndex deletes an existing index.
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-delete-index.html
 func (c *client) DeleteIndex(indexName string) (*Response, error) {
 	url := c.Host.String() + "/" + indexName
 	response, err := sendHTTPRequest("DELETE", url, nil)
@@ -99,8 +140,6 @@ func (c *client) DeleteIndex(indexName string) (*Response, error) {
 	return esResp, nil
 }
 
-// UpdateIndexSetting changes specific index level settings in real time
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-update-settings.html
 func (c *client) UpdateIndexSetting(indexName, mapping string) (*Response, error) {
 	url := c.Host.String() + "/" + indexName + "/_settings"
 	reader := bytes.NewBufferString(mapping)
@@ -118,8 +157,6 @@ func (c *client) UpdateIndexSetting(indexName, mapping string) (*Response, error
 	return esResp, nil
 }
 
-// IndexSettings allows to retrieve settings of index
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-get-settings.html
 func (c *client) IndexSettings(indexName string) (Settings, error) {
 	url := c.Host.String() + "/" + indexName + "/_settings"
 	response, err := sendHTTPRequest("GET", url, nil)
@@ -138,8 +175,6 @@ func (c *client) IndexSettings(indexName string) (Settings, error) {
 	return info[indexName], nil
 }
 
-// IndexExists allows to check if the index exists or not.
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-exists.html
 func (c *client) IndexExists(indexName string) (bool, error) {
 	url := c.Host.String() + "/" + indexName
 	httpClient := &http.Client{}
@@ -151,7 +186,6 @@ func (c *client) IndexExists(indexName string) (bool, error) {
 	return newReq.StatusCode == http.StatusOK, nil
 }
 
-// Status allows to get a comprehensive status information
 func (c *client) Status(indices string) (*Settings, error) {
 	url := c.Host.String() + "/" + indices + "/_status"
 	response, err := sendHTTPRequest("GET", url, nil)
@@ -168,8 +202,6 @@ func (c *client) Status(indices string) (*Settings, error) {
 	return esResp, nil
 }
 
-// InsertDocument adds or updates a typed JSON document in a specific index, making it searchable
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-index_.html
 func (c *client) InsertDocument(indexName, documentType, identifier string, data []byte) (*InsertDocument, error) {
 	url := c.Host.String() + "/" + indexName + "/" + documentType + "/" + identifier
 	reader := bytes.NewBuffer(data)
@@ -187,8 +219,6 @@ func (c *client) InsertDocument(indexName, documentType, identifier string, data
 	return esResp, nil
 }
 
-// Document gets a typed JSON document from the index based on its id
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-get.html
 func (c *client) Document(indexName, documentType, identifier string) (*Document, error) {
 	url := c.Host.String() + "/" + indexName + "/" + documentType + "/" + identifier
 	response, err := sendHTTPRequest("GET", url, nil)
@@ -205,8 +235,6 @@ func (c *client) Document(indexName, documentType, identifier string) (*Document
 	return esResp, nil
 }
 
-// DeleteDocument deletes a typed JSON document from a specific index based on its id
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-delete.html
 func (c *client) DeleteDocument(indexName, documentType, identifier string) (*Document, error) {
 	url := c.Host.String() + "/" + indexName + "/" + documentType + "/" + identifier
 	response, err := sendHTTPRequest("DELETE", url, nil)
@@ -223,9 +251,6 @@ func (c *client) DeleteDocument(indexName, documentType, identifier string) (*Do
 	return esResp, nil
 }
 
-// Bulk makes it possible to perform many index/delete operations in a single API call.
-// This can greatly increase the indexing speed.
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html
 func (c *client) Bulk(data []byte) (*Bulk, error) {
 	url := c.Host.String() + "/_bulk"
 	reader := bytes.NewBuffer(data)
@@ -243,8 +268,6 @@ func (c *client) Bulk(data []byte) (*Bulk, error) {
 	return esResp, nil
 }
 
-// Search allows to execute a search query and get back search hits that match the query
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-delete.html
 func (c *client) Search(indexName, documentType, data string, explain bool) (*SearchResult, error) {
 	if len(documentType) > 0 {
 		documentType = documentType + "/"
@@ -269,8 +292,6 @@ func (c *client) Search(indexName, documentType, data string, explain bool) (*Se
 	return esResp, nil
 }
 
-// MSearch allows to execute a multi-search and get back result
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-multi-search.html
 func (c *client) MSearch(queries []MSearchQuery) (*MSearchResult, error) {
 	replacer := strings.NewReplacer("\n", " ")
 	queriesList := make([]string, len(queries))
@@ -296,8 +317,6 @@ func (c *client) MSearch(queries []MSearchQuery) (*MSearchResult, error) {
 	return esResp, nil
 }
 
-// Suggest allows basic auto-complete functionality.
-// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-completion.html
 func (c *client) Suggest(indexName, data string) ([]byte, error) {
 	url := c.Host.String() + "/" + indexName + "/_suggest"
 	reader := bytes.NewBufferString(data)
@@ -305,7 +324,6 @@ func (c *client) Suggest(indexName, data string) ([]byte, error) {
 	return response, err
 }
 
-// GetIndicesFromAlias returns the list of indices the alias points to
 func (c *client) GetIndicesFromAlias(alias string) ([]string, error) {
 	url := c.Host.String() + "/*/_alias/" + alias
 	response, err := sendHTTPRequest("GET", url, nil)
@@ -328,8 +346,6 @@ func (c *client) GetIndicesFromAlias(alias string) ([]string, error) {
 	return indices, nil
 }
 
-// UpdateAlias updates the indices on which the alias point to.
-// The change is atomic.
 func (c *client) UpdateAlias(remove []string, add []string, alias string) (*Response, error) {
 	url := c.Host.String() + "/_aliases"
 	body := getAliasQuery(remove, add, alias)
