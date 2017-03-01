@@ -10,12 +10,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Searcher set the contract to manage indices, synchronize data and request
 type Client interface {
-	// SetHttpTimeout sets timeout to use in http request in milliseconds
-	SetHttpTimeout(milliseconds int)
+	// SetHttpTimeout sets timeout to use in http request
+	SetHttpTimeout(duration time.Duration)
 
 	// CreateIndex instantiates an index
 	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-create-index.html
@@ -80,7 +81,7 @@ type Client interface {
 // A SearchClient describes the client configuration to manage an ElasticSearch index.
 type client struct {
 	Host    url.URL
-	Timeout int
+	Timeout time.Duration
 }
 
 // NewSearchClient creates and initializes a new ElasticSearch client, implements core api for Indexing and searching.
@@ -102,15 +103,14 @@ func NewClientFromUrl(rawurl string) Client {
 	return &client{Host: *u}
 }
 
-// SetHttpTimeout sets timeout to use in http request in milliseconds
-func (c *client) SetHttpTimeout(milliseconds int) {
-	c.Timeout = milliseconds
+func (c *client) SetHttpTimeout(duration time.Duration) {
+	c.Timeout = duration
 }
 
 func (c *client) CreateIndex(indexName, mapping string) (*Response, error) {
 	url := c.Host.String() + "/" + indexName
 	reader := bytes.NewBufferString(mapping)
-	response, err := sendHTTPRequest("POST", url, reader)
+	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
 	if err != nil {
 		return &Response{}, err
 	}
@@ -126,7 +126,7 @@ func (c *client) CreateIndex(indexName, mapping string) (*Response, error) {
 
 func (c *client) DeleteIndex(indexName string) (*Response, error) {
 	url := c.Host.String() + "/" + indexName
-	response, err := sendHTTPRequest("DELETE", url, nil)
+	response, err := sendHTTPRequest("DELETE", url, nil, c.Timeout)
 	if err != nil {
 		return &Response{}, err
 	}
@@ -143,7 +143,7 @@ func (c *client) DeleteIndex(indexName string) (*Response, error) {
 func (c *client) UpdateIndexSetting(indexName, mapping string) (*Response, error) {
 	url := c.Host.String() + "/" + indexName + "/_settings"
 	reader := bytes.NewBufferString(mapping)
-	response, err := sendHTTPRequest("PUT", url, reader)
+	response, err := sendHTTPRequest("PUT", url, reader, c.Timeout)
 	if err != nil {
 		return &Response{}, err
 	}
@@ -159,7 +159,7 @@ func (c *client) UpdateIndexSetting(indexName, mapping string) (*Response, error
 
 func (c *client) IndexSettings(indexName string) (Settings, error) {
 	url := c.Host.String() + "/" + indexName + "/_settings"
-	response, err := sendHTTPRequest("GET", url, nil)
+	response, err := sendHTTPRequest("GET", url, nil, c.Timeout)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -188,7 +188,7 @@ func (c *client) IndexExists(indexName string) (bool, error) {
 
 func (c *client) Status(indices string) (*Settings, error) {
 	url := c.Host.String() + "/" + indices + "/_status"
-	response, err := sendHTTPRequest("GET", url, nil)
+	response, err := sendHTTPRequest("GET", url, nil, c.Timeout)
 	if err != nil {
 		return &Settings{}, err
 	}
@@ -205,7 +205,7 @@ func (c *client) Status(indices string) (*Settings, error) {
 func (c *client) InsertDocument(indexName, documentType, identifier string, data []byte) (*InsertDocument, error) {
 	url := c.Host.String() + "/" + indexName + "/" + documentType + "/" + identifier
 	reader := bytes.NewBuffer(data)
-	response, err := sendHTTPRequest("POST", url, reader)
+	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
 	if err != nil {
 		return &InsertDocument{}, err
 	}
@@ -221,7 +221,7 @@ func (c *client) InsertDocument(indexName, documentType, identifier string, data
 
 func (c *client) Document(indexName, documentType, identifier string) (*Document, error) {
 	url := c.Host.String() + "/" + indexName + "/" + documentType + "/" + identifier
-	response, err := sendHTTPRequest("GET", url, nil)
+	response, err := sendHTTPRequest("GET", url, nil, c.Timeout)
 	if err != nil {
 		return &Document{}, err
 	}
@@ -237,7 +237,7 @@ func (c *client) Document(indexName, documentType, identifier string) (*Document
 
 func (c *client) DeleteDocument(indexName, documentType, identifier string) (*Document, error) {
 	url := c.Host.String() + "/" + indexName + "/" + documentType + "/" + identifier
-	response, err := sendHTTPRequest("DELETE", url, nil)
+	response, err := sendHTTPRequest("DELETE", url, nil, c.Timeout)
 	if err != nil {
 		return &Document{}, err
 	}
@@ -254,7 +254,7 @@ func (c *client) DeleteDocument(indexName, documentType, identifier string) (*Do
 func (c *client) Bulk(data []byte) (*Bulk, error) {
 	url := c.Host.String() + "/_bulk"
 	reader := bytes.NewBuffer(data)
-	response, err := sendHTTPRequest("POST", url, reader)
+	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
 	if err != nil {
 		return &Bulk{}, err
 	}
@@ -278,7 +278,7 @@ func (c *client) Search(indexName, documentType, data string, explain bool) (*Se
 		url += "?explain"
 	}
 	reader := bytes.NewBufferString(data)
-	response, err := sendHTTPRequest("POST", url, reader)
+	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
 	if err != nil {
 		return &SearchResult{}, err
 	}
@@ -302,7 +302,7 @@ func (c *client) MSearch(queries []MSearchQuery) (*MSearchResult, error) {
 	mSearchQuery := strings.Join(queriesList, "\n") + "\n" // Don't forget trailing \n
 	url := c.Host.String() + "/_msearch"
 	reader := bytes.NewBufferString(mSearchQuery)
-	response, err := sendHTTPRequest("POST", url, reader)
+	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
 
 	if err != nil {
 		return &MSearchResult{}, err
@@ -320,13 +320,13 @@ func (c *client) MSearch(queries []MSearchQuery) (*MSearchResult, error) {
 func (c *client) Suggest(indexName, data string) ([]byte, error) {
 	url := c.Host.String() + "/" + indexName + "/_suggest"
 	reader := bytes.NewBufferString(data)
-	response, err := sendHTTPRequest("POST", url, reader)
+	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
 	return response, err
 }
 
 func (c *client) GetIndicesFromAlias(alias string) ([]string, error) {
 	url := c.Host.String() + "/*/_alias/" + alias
-	response, err := sendHTTPRequest("GET", url, nil)
+	response, err := sendHTTPRequest("GET", url, nil, c.Timeout)
 	if err != nil {
 		return []string{}, err
 	}
@@ -351,7 +351,7 @@ func (c *client) UpdateAlias(remove []string, add []string, alias string) (*Resp
 	body := getAliasQuery(remove, add, alias)
 	reader := bytes.NewBufferString(body)
 
-	response, err := sendHTTPRequest("POST", url, reader)
+	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
 	if err != nil {
 		return &Response{}, err
 	}
@@ -382,8 +382,9 @@ func getAliasQuery(remove []string, add []string, alias string) string {
 	return "{\"actions\": [ " + strings.Join(actions, ",") + " ]}"
 }
 
-func sendHTTPRequest(method, url string, body io.Reader) ([]byte, error) {
+func sendHTTPRequest(method, url string, body io.Reader, timeout time.Duration) ([]byte, error) {
 	client := &http.Client{}
+	client.Timeout = timeout
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
