@@ -63,19 +63,24 @@ type Client interface {
 	Search(indexName, documentType, data string, explain bool) (*SearchResult, error)
 
 	// MSearch allows to execute a multi-search and get back result
-	// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-multi-search.html
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-multi-search.html
 	MSearch(queries []MSearchQuery) (*MSearchResult, error)
 
 	// Suggest allows basic auto-complete functionality.
-	// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-completion.html
+	// https://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-completion.html
 	Suggest(indexName, data string) ([]byte, error)
 
 	// GetIndicesFromAlias returns the list of indices the alias points to
 	GetIndicesFromAlias(alias string) ([]string, error)
 
-	// UpdateAlias updates the indices on which the alias point to.
+	// UpdateAlias updates the indices on which the alias points to.
 	// The change is atomic.
 	UpdateAlias(remove []string, add []string, alias string) (*Response, error)
+
+	// Search document using scan search type and the scroll API to retrieve large numbers of documents from
+	// Elasticsearch efficiently, without paying the penalty of deep pagination.
+	// https://www.elastic.co/guide/en/elasticsearch/guide/1.x/scan-scroll.html
+	SearchByScanAndScroll(indexName string, documentType string, expireTime time.Duration, body string) (*Scroller, error)
 }
 
 // A SearchClient describes the client configuration to manage an ElasticSearch index.
@@ -266,62 +271,6 @@ func (c *client) Bulk(data []byte) (*Bulk, error) {
 	}
 
 	return esResp, nil
-}
-
-func (c *client) Search(indexName, documentType, data string, explain bool) (*SearchResult, error) {
-	if len(documentType) > 0 {
-		documentType = documentType + "/"
-	}
-
-	url := c.Host.String() + "/" + indexName + "/" + documentType + "/_search"
-	if explain {
-		url += "?explain"
-	}
-	reader := bytes.NewBufferString(data)
-	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
-	if err != nil {
-		return &SearchResult{}, err
-	}
-
-	esResp := &SearchResult{}
-	err = json.Unmarshal(response, esResp)
-	if err != nil {
-		return &SearchResult{}, err
-	}
-
-	return esResp, nil
-}
-
-func (c *client) MSearch(queries []MSearchQuery) (*MSearchResult, error) {
-	replacer := strings.NewReplacer("\n", " ")
-	queriesList := make([]string, len(queries))
-	for i, query := range queries {
-		queriesList[i] = query.Header + "\n" + replacer.Replace(query.Body)
-	}
-
-	mSearchQuery := strings.Join(queriesList, "\n") + "\n" // Don't forget trailing \n
-	url := c.Host.String() + "/_msearch"
-	reader := bytes.NewBufferString(mSearchQuery)
-	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
-
-	if err != nil {
-		return &MSearchResult{}, err
-	}
-
-	esResp := &MSearchResult{}
-	err = json.Unmarshal(response, esResp)
-	if err != nil {
-		return &MSearchResult{}, err
-	}
-
-	return esResp, nil
-}
-
-func (c *client) Suggest(indexName, data string) ([]byte, error) {
-	url := c.Host.String() + "/" + indexName + "/_suggest"
-	reader := bytes.NewBufferString(data)
-	response, err := sendHTTPRequest("POST", url, reader, c.Timeout)
-	return response, err
 }
 
 func (c *client) GetIndicesFromAlias(alias string) ([]string, error) {

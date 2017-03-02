@@ -99,13 +99,13 @@ type ActionDelete struct {
 
 // ActionUpdate represents the action to be used in update bulk operation
 type ActionUpdate struct {
-	Index   string `json:"_index"`
-	Type    string `json:"_type"`
-	ID      string `json:"_id"`
-	Routing string `json:"_routing,omitempty"`
-	Version string `json:"_version,omitempty"`
-	Parent  string `json:"_parent,omitempty"`
-	Retry   string `json:"_retry_on_conflict,omitempty"`
+	Index           string `json:"_index"`
+	Type            string `json:"_type"`
+	ID              string `json:"_id"`
+	Routing         string `json:"_routing,omitempty"`
+	Version         string `json:"_version,omitempty"`
+	Parent          string `json:"_parent,omitempty"`
+	RetryOnConflict string `json:"_retry_on_conflict,omitempty"`
 }
 
 // SearchResult represents the result of the search operation
